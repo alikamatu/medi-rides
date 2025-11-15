@@ -8,6 +8,7 @@ import {
   HttpStatus,
   Req,
   Res,
+  Query,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
@@ -16,7 +17,6 @@ import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { LocalAuthGuard } from './guards/local-auth.guard';
-import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -28,6 +28,8 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { ResendVerificationDto } from './dto/resend-verification.dto';
+import { GoogleOAuthGuard } from './guards/google-oauth.guard';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -39,7 +41,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Register a new user' })
   @ApiResponse({ status: 201, description: 'User successfully registered' })
   @ApiResponse({ status: 409, description: 'Email already exists' })
-  async register(@Body() registerDto: RegisterDto): Promise<AuthResponse> {
+  async register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
 
@@ -56,23 +58,71 @@ export class AuthController {
 
   @Public()
   @Get('google')
-  @UseGuards(GoogleAuthGuard)
+  @UseGuards(GoogleOAuthGuard)
   @ApiOperation({ summary: 'Initiate Google OAuth' })
   async googleAuth() {
     // This redirects to Google OAuth
   }
 
-  @Public()
-  @Get('google/callback')
-  @UseGuards(GoogleAuthGuard)
-  @ApiOperation({ summary: 'Google OAuth callback' })
-  async googleAuthRedirect(@Req() req: Request, @Res() res: Response) {
-    const { user, tokens } = req.user as any;
-
-    // Redirect to frontend with tokens
-    const redirectUrl = `${process.env.FRONTEND_URL}/auth/success?access_token=${tokens.access_token}&refresh_token=${tokens.refresh_token}`;
+@Public()
+@Get('google/callback')
+@UseGuards(GoogleOAuthGuard)
+@ApiOperation({ summary: 'Google OAuth callback' })
+async googleAuthRedirect(@Req() req: any, @Res() res: Response) {
+  try {
+    console.log('Google callback user:', req.user);
     
+    if (!req.user) {
+      throw new Error('No user data received from Google');
+    }
+
+    const authResponse = await this.authService.googleLogin(req.user);
+    
+    // Redirect to frontend with tokens and user info
+    const redirectUrl = `${process.env.FRONTEND_URL}/auth/success?` + 
+      `access_token=${authResponse.tokens.access_token}&` +
+      `refresh_token=${authResponse.tokens.refresh_token}&` +
+      `role=${authResponse.user.role}&` +
+      `is_new=${authResponse.isNew ? 'true' : 'false'}&` +
+      `redirect_to=${encodeURIComponent(authResponse.redirectTo || '/')}`;
+    
+    console.log('Redirecting to:', redirectUrl);
     return res.redirect(redirectUrl);
+  } catch (error) {
+    console.error('Google OAuth callback error:', error);
+    
+    // Even if token creation fails, we can still redirect with user info
+    if (req.user && req.user.user) {
+      const user = req.user.user;
+      const errorRedirectUrl = `${process.env.FRONTEND_URL}/auth/partial-success?` +
+        `email=${encodeURIComponent(user.email)}&` +
+        `name=${encodeURIComponent(user.name)}&` +
+        `role=${user.role}&` +
+        `error=${encodeURIComponent('Token creation failed, please login manually')}`;
+      return res.redirect(errorRedirectUrl);
+    }
+    
+    // Redirect to error page
+    const errorRedirectUrl = `${process.env.FRONTEND_URL}/auth/error?message=${encodeURIComponent('Google authentication failed')}`;
+    return res.redirect(errorRedirectUrl);
+  }
+}
+
+  @Public()
+  @Get('verify-email')
+  @ApiOperation({ summary: 'Verify email address' })
+  @ApiResponse({ status: 200, description: 'Email verified successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired token' })
+  async verifyEmail(@Query('token') token: string) {
+    return this.authService.verifyEmail(token);
+  }
+
+  @Public()
+  @Post('resend-verification')
+  @ApiOperation({ summary: 'Resend verification email' })
+  @ApiResponse({ status: 200, description: 'Verification email sent' })
+  async resendVerification(@Body() resendVerificationDto: ResendVerificationDto) {
+    return this.authService.resendVerificationEmail(resendVerificationDto.email);
   }
 
   @Post('logout')
@@ -93,7 +143,6 @@ export class AuthController {
   async refreshTokens(@Body() refreshTokenDto: RefreshTokenDto) {
     const { refresh_token } = refreshTokenDto;
     
-    // Verify the refresh token to get user ID
     const payload = this.authService['jwtService'].verify(refresh_token, {
       secret: this.authService['configService'].get('auth.jwt.refreshSecret'),
     });

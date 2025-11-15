@@ -10,8 +10,10 @@ datasource db {
 model User {
   id         Int      @id @default(autoincrement())
   email      String   @unique
-  password   String?
+  password   String?  // Make sure this is optional
   name       String
+  emailVerificationToken String?
+  emailVerificationExpires DateTime?
   role       UserRole @default(CUSTOMER)
   phone      String?
   avatar     String?
@@ -30,12 +32,13 @@ model User {
   customerRides Ride[]         @relation("CustomerRides")
   driverRides   Ride[]         @relation("DriverRides")
   driverProfile DriverProfile?
+  patientProfile PatientProfile?
   payments      Payment[]
   addresses     Address[]
 
-  vehicles       Vehicle[] // ← add this
-  availabilities DriverAvailability[] // ← add this
-  notifications  Notification[] // ← add this
+  vehicles       Vehicle[]
+  availabilities DriverAvailability[]
+  notifications  Notification[]
 
   @@map("users")
 }
@@ -155,7 +158,7 @@ model Address {
 model RefreshToken {
   id        Int      @id @default(autoincrement())
   token     String   @unique
-  userId    Int
+  userId    Int      @unique
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
@@ -191,6 +194,19 @@ model Vehicle {
   updatedAt DateTime @updatedAt
 
   @@map("vehicles")
+}
+
+model PatientProfile {
+    id            Int      @id @default(autoincrement())
+  userId        Int      @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  totalTrips    Int      @default(0)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("patient_profiles")
 }
 
 model DriverProfile {
@@ -250,7 +266,7 @@ model Notification {
 }
 
 // Enums
-export enum UserRole {
+enum UserRole {
   CUSTOMER
   DRIVER
   ADMIN

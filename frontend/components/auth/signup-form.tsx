@@ -2,28 +2,34 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Eye, EyeOff, Mail, Lock, User, Phone, UserCheck } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, Phone, UserCheck, CheckCheck } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 const SignupForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
-    fullName: '',
+    name: '',
     email: '',
     phone: '',
     password: '',
     confirmPassword: '',
-    userType: 'patient',
+    role: 'CUSTOMER',
     agreeToTerms: false
   });
   const [errors, setErrors] = useState<{ [key: string]: string | undefined }>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+const [isLoading, setIsLoading] = useState(false);
+const [signupSuccess, setSignupSuccess] = useState(false);
+const [message, setMessage] = useState('');
 
+  const { register } = useAuth();
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
 
-    if (!formData.fullName.trim()) {
-      newErrors.fullName = 'Full name is required';
+    if (!formData.name.trim()) {
+      newErrors.name = 'Full name is required';
     }
 
     if (!formData.email) {
@@ -58,13 +64,81 @@ const SignupForm = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (validateForm()) {
-      // Handle signup logic here
-      console.log('Signup data:', formData);
+  const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setErrors({});
+
+  if (!validateForm()) return;
+
+  setIsLoading(true);
+
+  try {
+    const response = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: formData.email,
+        password: formData.password,
+        name: formData.name,
+        phone: formData.phone.replace(/\D/g, ''),
+        role: 'CUSTOMER', // Map your frontend userType to backend role
+      }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      setSignupSuccess(true);
+      setMessage(data.message || 'Registration successful! Please check your email to verify your account.');
+    } else {
+      setErrors({ 
+        general: data.message || 'Registration failed. Please try again.' 
+      });
     }
-  };
+  } catch (error) {
+    setErrors({ 
+      general: 'Network error. Please check your connection and try again.' 
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+// Add success state rendering
+if (signupSuccess) {
+  return (
+    <div className="text-center">
+      <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <CheckCheck className="w-8 h-8 text-green-600" />
+      </div>
+      <h2 className="text-2xl font-bold text-[#0A2342] mb-2">
+        Check Your Email
+      </h2>
+      <p className="text-[#64748B] mb-6">
+        {message}
+      </p>
+      <div className="space-y-3">
+        <button
+          onClick={() => setSignupSuccess(false)}
+          className="w-full py-3 px-4 border border-[#E6EAF0] rounded-lg text-[#0A2342] hover:bg-[#F5F7FA] transition-colors duration-200 font-medium"
+        >
+          Back to Registration
+        </button>
+        <p className="text-sm text-[#64748B]">
+          Didn't receive the email?{' '}
+          <button
+            onClick={() => {/* Implement resend logic */}}
+            className="text-[#0077B6] hover:text-[#005A8F] font-medium"
+          >
+            Resend verification
+          </button>
+        </p>
+      </div>
+    </div>
+  );
+}
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -78,6 +152,9 @@ const SignupForm = () => {
     // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: undefined }));
+    }
+    if (errors.general) {
+      setErrors(prev => ({ ...prev, general: undefined }));
     }
   };
 
@@ -107,9 +184,19 @@ const SignupForm = () => {
         </p>
       </div>
 
-      {/* Full Name Field */}
+      {errors.general && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-3 bg-red-50 border border-red-200 rounded-lg"
+        >
+          <p className="text-sm text-red-600">{errors.general}</p>
+        </motion.div>
+      )}
+
+      {/* Name Field */}
       <div>
-        <label htmlFor="fullName" className="block text-sm font-medium text-[#0A2342] mb-2">
+        <label htmlFor="name" className="block text-sm font-medium text-[#0A2342] mb-2">
           Full Name
         </label>
         <div className="relative">
@@ -117,24 +204,25 @@ const SignupForm = () => {
             <User className="h-5 w-5 text-[#64748B]" />
           </div>
           <input
-            id="fullName"
-            name="fullName"
+            id="name"
+            name="name"
             type="text"
-            value={formData.fullName}
+            value={formData.name}
             onChange={handleChange}
+            disabled={isSubmitting}
             className={`block w-full pl-10 pr-3 py-3 border ${
-              errors.fullName ? 'border-red-300' : 'border-[#E6EAF0]'
-            } rounded-lg focus:ring-2 focus:ring-[#B0D6FF] focus:border-[#B0D6FF] transition-colors duration-200`}
+              errors.name ? 'border-red-300' : 'border-[#E6EAF0]'
+            } rounded-lg focus:ring-2 focus:ring-[#B0D6FF] focus:border-[#B0D6FF] transition-colors duration-200 disabled:opacity-50`}
             placeholder="Enter your full name"
           />
         </div>
-        {errors.fullName && (
+        {errors.name && (
           <motion.p
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             className="mt-1 text-sm text-red-600"
           >
-            {errors.fullName}
+            {errors.name}
           </motion.p>
         )}
       </div>
@@ -154,9 +242,10 @@ const SignupForm = () => {
             type="email"
             value={formData.email}
             onChange={handleChange}
+            disabled={isSubmitting}
             className={`block w-full pl-10 pr-3 py-3 border ${
               errors.email ? 'border-red-300' : 'border-[#E6EAF0]'
-            } rounded-lg focus:ring-2 focus:ring-[#B0D6FF] focus:border-[#B0D6FF] transition-colors duration-200`}
+            } rounded-lg focus:ring-2 focus:ring-[#B0D6FF] focus:border-[#B0D6FF] transition-colors duration-200 disabled:opacity-50`}
             placeholder="Enter your email"
           />
         </div>
@@ -186,9 +275,10 @@ const SignupForm = () => {
             type="tel"
             value={formData.phone}
             onChange={handlePhoneChange}
+            disabled={isSubmitting}
             className={`block w-full pl-10 pr-3 py-3 border ${
               errors.phone ? 'border-red-300' : 'border-[#E6EAF0]'
-            } rounded-lg focus:ring-2 focus:ring-[#B0D6FF] focus:border-[#B0D6FF] transition-colors duration-200`}
+            } rounded-lg focus:ring-2 focus:ring-[#B0D6FF] focus:border-[#B0D6FF] transition-colors duration-200 disabled:opacity-50`}
             placeholder="(555) 123-4567"
           />
         </div>
@@ -205,7 +295,7 @@ const SignupForm = () => {
 
       {/* User Type */}
       <div>
-        <label htmlFor="userType" className="block text-sm font-medium text-[#0A2342] mb-2">
+        <label htmlFor="role" className="block text-sm font-medium text-[#0A2342] mb-2">
           I am a...
         </label>
         <div className="relative">
@@ -213,16 +303,17 @@ const SignupForm = () => {
             <UserCheck className="h-5 w-5 text-[#64748B]" />
           </div>
           <select
-            id="userType"
-            name="userType"
-            value={formData.userType}
+            id="role"
+            name="role"
+            value={formData.role}
             onChange={handleChange}
-            className="block w-full pl-10 pr-3 py-3 border border-[#E6EAF0] rounded-lg focus:ring-2 focus:ring-[#B0D6FF] focus:border-[#B0D6FF] transition-colors duration-200 bg-white"
+            disabled={isSubmitting}
+            className="block w-full pl-10 pr-3 py-3 border border-[#E6EAF0] rounded-lg focus:ring-2 focus:ring-[#B0D6FF] focus:border-[#B0D6FF] transition-colors duration-200 bg-white disabled:opacity-50"
           >
-            <option value="patient">Patient</option>
-            <option value="caregiver">Caregiver</option>
-            <option value="family">Family Member</option>
-            <option value="medical-staff">Medical Staff</option>
+            <option value="CUSTOMER">Patient</option>
+            <option value="CUSTOMER">Caregiver</option>
+            <option value="CUSTOMER">Family Member</option>
+            <option value="DRIVER">Driver</option>
           </select>
         </div>
       </div>
@@ -242,14 +333,16 @@ const SignupForm = () => {
             type={showPassword ? 'text' : 'password'}
             value={formData.password}
             onChange={handleChange}
+            disabled={isSubmitting}
             className={`block w-full pl-10 pr-10 py-3 border ${
               errors.password ? 'border-red-300' : 'border-[#E6EAF0]'
-            } rounded-lg focus:ring-2 focus:ring-[#B0D6FF] focus:border-[#B0D6FF] transition-colors duration-200`}
+            } rounded-lg focus:ring-2 focus:ring-[#B0D6FF] focus:border-[#B0D6FF] transition-colors duration-200 disabled:opacity-50`}
             placeholder="Create a password"
           />
           <button
             type="button"
-            className="absolute inset-y-0 right-0 pr-3 flex items-center"
+            disabled={isSubmitting}
+            className="absolute inset-y-0 right-0 pr-3 flex items-center disabled:opacity-50"
             onClick={() => setShowPassword(!showPassword)}
           >
             {showPassword ? (
@@ -285,14 +378,16 @@ const SignupForm = () => {
             type={showConfirmPassword ? 'text' : 'password'}
             value={formData.confirmPassword}
             onChange={handleChange}
+            disabled={isSubmitting}
             className={`block w-full pl-10 pr-10 py-3 border ${
               errors.confirmPassword ? 'border-red-300' : 'border-[#E6EAF0]'
-            } rounded-lg focus:ring-2 focus:ring-[#B0D6FF] focus:border-[#B0D6FF] transition-colors duration-200`}
+            } rounded-lg focus:ring-2 focus:ring-[#B0D6FF] focus:border-[#B0D6FF] transition-colors duration-200 disabled:opacity-50`}
             placeholder="Confirm your password"
           />
           <button
             type="button"
-            className="absolute inset-y-0 right-0 pr-3 flex items-center"
+            disabled={isSubmitting}
+            className="absolute inset-y-0 right-0 pr-3 flex items-center disabled:opacity-50"
             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
           >
             {showConfirmPassword ? (
@@ -321,7 +416,8 @@ const SignupForm = () => {
           type="checkbox"
           checked={formData.agreeToTerms}
           onChange={handleChange}
-          className="h-4 w-4 text-[#B0D6FF] focus:ring-[#B0D6FF] border-[#E6EAF0] rounded mt-1"
+          disabled={isSubmitting}
+          className="h-4 w-4 text-[#B0D6FF] focus:ring-[#B0D6FF] border-[#E6EAF0] rounded mt-1 disabled:opacity-50"
         />
         <label htmlFor="agreeToTerms" className="text-sm text-[#64748B]">
           I agree to the{' '}
@@ -347,12 +443,19 @@ const SignupForm = () => {
       {/* Submit Button */}
       <motion.button
         type="submit"
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        className="w-full flex justify-center items-center space-x-3 py-3 px-4 border border-transparent rounded-lg shadow-sm text-white bg-[#0077B6] hover:bg-[#005A8F] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#B0D6FF] transition-colors duration-200"
+        disabled={isSubmitting}
+        whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
+        whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
+        className="w-full flex justify-center items-center space-x-3 py-3 px-4 border border-transparent rounded-lg shadow-sm text-white bg-[#0077B6] hover:bg-[#005A8F] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#B0D6FF] transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        <UserCheck className="w-5 h-5" />
-        <span className="font-semibold">Create Account</span>
+        {isSubmitting ? (
+          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <UserCheck className="w-5 h-5" />
+        )}
+        <span className="font-semibold">
+          {isSubmitting ? 'Creating Account...' : 'Create Account'}
+        </span>
       </motion.button>
     </form>
   );

@@ -17,10 +17,20 @@ export type AuthResponse = {
     email: string;
     name: string;
     role: string;
+    phone?: string;
     avatar?: string;
+    redirectTo: string;
     isVerified: boolean;
+    tokens: Tokens;
+    isActive: boolean;
+    provider?: string;
+    createdAt: Date;
+    lastLoginAt?: Date;
   };
   tokens: Tokens;
+  redirectTo?: string;
+  isNew?: boolean;
+  message?: string;
 };
 
 export type GoogleProfile = {
@@ -29,4 +39,15 @@ export type GoogleProfile = {
   name: { givenName: string; familyName: string };
   photos: { value: string }[];
   provider: string;
+  _json: any;
+};
+
+export type OAuthUser = {
+  provider: string;
+  providerId: string;
+  email: string;
+  name: string;
+  avatar?: string;
+  accessToken: string;
+  refreshToken?: string;
 };
