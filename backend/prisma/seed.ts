@@ -123,7 +123,6 @@ async function main() {
   await prisma.vehicle.createMany({
     data: [
       {
-        driverId: driver1.id,
         make: 'Ford',
         model: 'Transit Wagon',
         year: 2022,
@@ -137,7 +136,6 @@ async function main() {
         registrationExpiry: new Date('2024-12-31'),
       },
       {
-        driverId: driver2.id,
         make: 'Toyota',
         model: 'Sienna',
         year: 2021,

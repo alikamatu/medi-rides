@@ -18,12 +18,10 @@ const SignupForm = () => {
     agreeToTerms: false
   });
   const [errors, setErrors] = useState<{ [key: string]: string | undefined }>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-const [isLoading, setIsLoading] = useState(false);
-const [signupSuccess, setSignupSuccess] = useState(false);
-const [message, setMessage] = useState('');
-
-  const { register } = useAuth();
+  const [signupSuccess, setSignupSuccess] = useState(false);
+  const [message, setMessage] = useState('');
+  
+  const { register, isLoading } = useAuth();
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
@@ -65,80 +63,91 @@ const [message, setMessage] = useState('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setErrors({});
+    e.preventDefault();
+    setErrors({});
 
-  if (!validateForm()) return;
+    if (!validateForm()) return;
 
-  setIsLoading(true);
-
-  try {
-    const response = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    try {
+      const result = await register({
         email: formData.email,
         password: formData.password,
         name: formData.name,
         phone: formData.phone.replace(/\D/g, ''),
-        role: 'CUSTOMER', // Map your frontend userType to backend role
-      }),
-    });
+        role: formData.role,
+      });
 
-    const data = await response.json();
-
-    if (response.ok) {
       setSignupSuccess(true);
-      setMessage(data.message || 'Registration successful! Please check your email to verify your account.');
-    } else {
+      setMessage('Registration successful! Please check your email to verify your account.');
+    } catch (error: any) {
       setErrors({ 
-        general: data.message || 'Registration failed. Please try again.' 
+        general: error.message || 'Registration failed. Please try again.' 
       });
     }
-  } catch (error) {
-    setErrors({ 
-      general: 'Network error. Please check your connection and try again.' 
-    });
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
-// Add success state rendering
-if (signupSuccess) {
-  return (
-    <div className="text-center">
-      <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-        <CheckCheck className="w-8 h-8 text-green-600" />
-      </div>
-      <h2 className="text-2xl font-bold text-[#0A2342] mb-2">
-        Check Your Email
-      </h2>
-      <p className="text-[#64748B] mb-6">
-        {message}
-      </p>
-      <div className="space-y-3">
-        <button
-          onClick={() => setSignupSuccess(false)}
-          className="w-full py-3 px-4 border border-[#E6EAF0] rounded-lg text-[#0A2342] hover:bg-[#F5F7FA] transition-colors duration-200 font-medium"
-        >
-          Back to Registration
-        </button>
-        <p className="text-sm text-[#64748B]">
-          Didn't receive the email?{' '}
-          <button
-            onClick={() => {/* Implement resend logic */}}
-            className="text-[#0077B6] hover:text-[#005A8F] font-medium"
-          >
-            Resend verification
-          </button>
+  // Add success state rendering
+  if (signupSuccess) {
+    return (
+      <div className="text-center">
+        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <CheckCheck className="w-8 h-8 text-green-600" />
+        </div>
+        <h2 className="text-2xl font-bold text-[#0A2342] mb-2">
+          Check Your Email
+        </h2>
+        <p className="text-[#64748B] mb-6">
+          {message}
         </p>
+        <div className="space-y-3">
+          <button
+            onClick={() => {
+              setSignupSuccess(false);
+              setFormData({
+                name: '',
+                email: '',
+                phone: '',
+                password: '',
+                confirmPassword: '',
+                role: 'ADMIN',
+                agreeToTerms: false
+              });
+            }}
+            className="w-full py-3 px-4 border border-[#E6EAF0] rounded-lg text-[#0A2342] hover:bg-[#F5F7FA] transition-colors duration-200 font-medium"
+          >
+            Back to Registration
+          </button>
+          <p className="text-sm text-[#64748B]">
+            Didn't receive the email?{' '}
+            <button
+              onClick={async () => {
+                try {
+                  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/resend-verification`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email: formData.email }),
+                  });
+                  
+                  if (response.ok) {
+                    setMessage('Verification email sent! Please check your inbox.');
+                  } else {
+                    setMessage('Failed to resend verification email. Please try again.');
+                  }
+                } catch (error) {
+                  setMessage('Error resending verification email.');
+                }
+              }}
+              className="text-[#0077B6] hover:text-[#005A8F] font-medium"
+            >
+              Resend verification
+            </button>
+          </p>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -209,7 +218,7 @@ if (signupSuccess) {
             type="text"
             value={formData.name}
             onChange={handleChange}
-            disabled={isSubmitting}
+            disabled={isLoading}
             className={`block w-full pl-10 pr-3 py-3 border ${
               errors.name ? 'border-red-300' : 'border-[#E6EAF0]'
             } rounded-lg focus:ring-2 focus:ring-[#B0D6FF] focus:border-[#B0D6FF] transition-colors duration-200 disabled:opacity-50`}
@@ -242,7 +251,7 @@ if (signupSuccess) {
             type="email"
             value={formData.email}
             onChange={handleChange}
-            disabled={isSubmitting}
+            disabled={isLoading}
             className={`block w-full pl-10 pr-3 py-3 border ${
               errors.email ? 'border-red-300' : 'border-[#E6EAF0]'
             } rounded-lg focus:ring-2 focus:ring-[#B0D6FF] focus:border-[#B0D6FF] transition-colors duration-200 disabled:opacity-50`}
@@ -275,7 +284,7 @@ if (signupSuccess) {
             type="tel"
             value={formData.phone}
             onChange={handlePhoneChange}
-            disabled={isSubmitting}
+            disabled={isLoading}
             className={`block w-full pl-10 pr-3 py-3 border ${
               errors.phone ? 'border-red-300' : 'border-[#E6EAF0]'
             } rounded-lg focus:ring-2 focus:ring-[#B0D6FF] focus:border-[#B0D6FF] transition-colors duration-200 disabled:opacity-50`}
@@ -307,7 +316,7 @@ if (signupSuccess) {
             name="role"
             value={formData.role}
             onChange={handleChange}
-            disabled={isSubmitting}
+            disabled={isLoading}
             className="block w-full pl-10 pr-3 py-3 border border-[#E6EAF0] rounded-lg focus:ring-2 focus:ring-[#B0D6FF] focus:border-[#B0D6FF] transition-colors duration-200 bg-white disabled:opacity-50"
           >
             <option value="CUSTOMER">Patient</option>
@@ -333,7 +342,7 @@ if (signupSuccess) {
             type={showPassword ? 'text' : 'password'}
             value={formData.password}
             onChange={handleChange}
-            disabled={isSubmitting}
+            disabled={isLoading}
             className={`block w-full pl-10 pr-10 py-3 border ${
               errors.password ? 'border-red-300' : 'border-[#E6EAF0]'
             } rounded-lg focus:ring-2 focus:ring-[#B0D6FF] focus:border-[#B0D6FF] transition-colors duration-200 disabled:opacity-50`}
@@ -341,7 +350,7 @@ if (signupSuccess) {
           />
           <button
             type="button"
-            disabled={isSubmitting}
+            disabled={isLoading}
             className="absolute inset-y-0 right-0 pr-3 flex items-center disabled:opacity-50"
             onClick={() => setShowPassword(!showPassword)}
           >
@@ -378,7 +387,7 @@ if (signupSuccess) {
             type={showConfirmPassword ? 'text' : 'password'}
             value={formData.confirmPassword}
             onChange={handleChange}
-            disabled={isSubmitting}
+            disabled={isLoading}
             className={`block w-full pl-10 pr-10 py-3 border ${
               errors.confirmPassword ? 'border-red-300' : 'border-[#E6EAF0]'
             } rounded-lg focus:ring-2 focus:ring-[#B0D6FF] focus:border-[#B0D6FF] transition-colors duration-200 disabled:opacity-50`}
@@ -386,7 +395,7 @@ if (signupSuccess) {
           />
           <button
             type="button"
-            disabled={isSubmitting}
+            disabled={isLoading}
             className="absolute inset-y-0 right-0 pr-3 flex items-center disabled:opacity-50"
             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
           >
@@ -416,7 +425,7 @@ if (signupSuccess) {
           type="checkbox"
           checked={formData.agreeToTerms}
           onChange={handleChange}
-          disabled={isSubmitting}
+          disabled={isLoading}
           className="h-4 w-4 text-[#B0D6FF] focus:ring-[#B0D6FF] border-[#E6EAF0] rounded mt-1 disabled:opacity-50"
         />
         <label htmlFor="agreeToTerms" className="text-sm text-[#64748B]">
@@ -443,18 +452,18 @@ if (signupSuccess) {
       {/* Submit Button */}
       <motion.button
         type="submit"
-        disabled={isSubmitting}
-        whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
-        whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
+        disabled={isLoading}
+        whileHover={{ scale: isLoading ? 1 : 1.02 }}
+        whileTap={{ scale: isLoading ? 1 : 0.98 }}
         className="w-full flex justify-center items-center space-x-3 py-3 px-4 border border-transparent rounded-lg shadow-sm text-white bg-[#0077B6] hover:bg-[#005A8F] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#B0D6FF] transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {isSubmitting ? (
+        {isLoading ? (
           <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
         ) : (
           <UserCheck className="w-5 h-5" />
         )}
         <span className="font-semibold">
-          {isSubmitting ? 'Creating Account...' : 'Create Account'}
+          {isLoading ? 'Creating Account...' : 'Create Account'}
         </span>
       </motion.button>
     </form>

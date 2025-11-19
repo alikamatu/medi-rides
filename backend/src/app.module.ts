@@ -6,6 +6,9 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import authConfig from './config/auth.config';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { PrismaService } from 'prisma/prisma.service';
+import { RidesModule } from './rides/rides.module';
+import { CloudinaryModule } from './cloudinary/cloudinary.module';
+import { VehiclesModule } from './vehicles/vehicles.module';
 
 @Module({
   imports: [
@@ -14,6 +17,9 @@ import { PrismaService } from 'prisma/prisma.service';
       load: [authConfig],
     }),
     AuthModule,
+    RidesModule,
+    CloudinaryModule,
+    VehiclesModule
   ],
   providers: [
     PrismaService,

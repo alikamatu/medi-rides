@@ -22,6 +22,7 @@ import { AUTH_ERRORS, AUTH_SUCCESS } from 'src/constants/auth.constants';
 import { PrismaService } from 'prisma/prisma.service';
 import { EmailService } from '../mail/email.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -316,10 +317,10 @@ async googleLogin(googleUser: any): Promise<AuthResponse> {
       [UserRole.ADMIN]: '/admin/dashboard',
       [UserRole.DRIVER]: '/driver/dashboard',
       [UserRole.DISPATCHER]: '/dispatcher/dashboard',
-      [UserRole.CUSTOMER]: '/dashboard',
+      [UserRole.CUSTOMER]: '/customer-dashboard',
     };
 
-    return `${baseUrl}${redirectPaths[role] || '/dashboard'}`;
+    return `${baseUrl}${redirectPaths[role] || '/customer-dashboard'}`;
   }
 
   // -------------------------
@@ -337,6 +338,35 @@ async googleLogin(googleUser: any): Promise<AuthResponse> {
 
     return this.mapUser(user);
   }
+
+  // Add to auth.service.ts
+async changePassword(userId: number, changePasswordDto: ChangePasswordDto): Promise<{ message: string }> {
+  const user = await this.prisma.user.findUnique({ where: { id: userId } });
+  if (!user) {
+    throw new NotFoundException(AUTH_ERRORS.USER_NOT_FOUND);
+  }
+
+  // For OAuth users without password
+  if (!user.password) {
+    throw new BadRequestException(AUTH_ERRORS.OAUTH_USER_NO_PASSWORD);
+  }
+
+  // Check current password
+  const isValid = await bcrypt.compare(changePasswordDto.currentPassword, user.password);
+  if (!isValid) {
+    throw new UnauthorizedException(AUTH_ERRORS.INVALID_CURRENT_PASSWORD);
+  }
+
+  // Hash new password
+  const hashedPassword = await this.hashData(changePasswordDto.newPassword);
+
+  await this.prisma.user.update({
+    where: { id: userId },
+    data: { password: hashedPassword },
+  });
+
+  return { message: AUTH_SUCCESS.PASSWORD_CHANGED };
+}
 
   // -------------------------
   // Send verification email
@@ -414,25 +444,80 @@ async googleLogin(googleUser: any): Promise<AuthResponse> {
   // -------------------------
   // Update profile
   // -------------------------
-  async updateProfile(userId: number, dto: UpdateProfileDto) {
-    const { email, ...updateData } = dto;
+// auth.service.ts - Fix the updateProfile method
+async updateProfile(userId: number, dto: UpdateProfileDto) {
+  console.log('🔧 updateProfile called with userId:', userId);
+  console.log('🔧 updateProfile data:', dto);
 
-    if (email) {
-      const existing = await this.prisma.user.findUnique({ where: { email } });
-      if (existing && existing.id !== userId) throw new ConflictException(AUTH_ERRORS.EMAIL_ALREADY_EXISTS);
-    }
-
-    const updatedUser = await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        ...updateData,
-        ...(email && { email, isVerified: false }),
-      },
-    });
-
-    return this.mapUser(updatedUser);
+  if (!userId) {
+    console.error('❌ User ID is undefined in updateProfile');
+    throw new BadRequestException('User ID is required');
   }
 
+  const { email, ...updateData } = dto;
+
+  // Check if user exists
+  const existingUser = await this.prisma.user.findUnique({
+    where: { id: userId }
+  });
+
+  if (!existingUser) {
+    console.error('❌ User not found for ID:', userId);
+    throw new NotFoundException(AUTH_ERRORS.USER_NOT_FOUND);
+  }
+
+  console.log('🔧 Existing user:', {
+    id: existingUser.id,
+    email: existingUser.email,
+    name: existingUser.name
+  });
+
+  // Check email uniqueness if email is being updated
+  if (email && email !== existingUser.email) {
+    const userWithEmail = await this.prisma.user.findUnique({ 
+      where: { email } 
+    });
+    
+    if (userWithEmail && userWithEmail.id !== userId) {
+      throw new ConflictException(AUTH_ERRORS.EMAIL_ALREADY_EXISTS);
+    }
+    
+    // If email is changed, mark as unverified and send verification email
+    updateData['email'] = email;
+    updateData['isVerified'] = false;
+    
+    // Generate new verification token
+    const emailVerificationToken = this.generateVerificationToken();
+    updateData['emailVerificationToken'] = emailVerificationToken;
+    updateData['emailVerificationExpires'] = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  }
+
+  // Remove undefined values to avoid Prisma errors
+  const cleanUpdateData = Object.fromEntries(
+    Object.entries(updateData).filter(([_, value]) => value !== undefined)
+  );
+
+  console.log('🔧 Clean update data:', cleanUpdateData);
+
+  try {
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: cleanUpdateData,
+    });
+
+    console.log('✅ Profile updated successfully:', updatedUser.id);
+
+    // If email was changed, send verification email
+    if (email && email !== existingUser.email) {
+      await this.sendVerificationEmail(updatedUser);
+    }
+
+    return this.mapUser(updatedUser);
+  } catch (error) {
+    console.error('❌ Prisma update error:', error);
+    throw new InternalServerErrorException('Failed to update profile');
+  }
+}
   // Enhanced token generation with better security
   private async generateTokens(payload: JwtPayload): Promise<Tokens> {
     const [access_token, refresh_token] = await Promise.all([

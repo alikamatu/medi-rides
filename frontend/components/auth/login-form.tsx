@@ -1,9 +1,10 @@
+
 'use client';
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, Mail, Lock, LogIn, AlertCircle, CheckCircle } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
 
 const LoginForm = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -13,9 +14,9 @@ const LoginForm = () => {
     rememberMe: false
   });
   const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string }>({});
-  const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const router = useRouter();
+  
+  const { login, isLoading } = useAuth();
 
   const validateForm = () => {
     const newErrors: { email?: string; password?: string } = {};
@@ -43,41 +44,17 @@ const LoginForm = () => {
 
     if (!validateForm()) return;
 
-    setIsLoading(true);
-
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
+      await login({
+        email: formData.email,
+        password: formData.password
       });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setMessage('Login successful! Redirecting...');
-        
-        // Store tokens securely
-        localStorage.setItem('access_token', data.tokens.access_token);
-        localStorage.setItem('refresh_token', data.tokens.refresh_token);
-        
-        // Redirect based on role
-        setTimeout(() => {
-          router.push(data.redirectTo || '/dashboard');
-        }, 1000);
-      } else {
-        setErrors({ 
-          general: data.message || 'Login failed. Please check your credentials and try again.' 
-        });
-      }
-    } catch (error) {
+      
+      setMessage('Login successful! Redirecting...');
+    } catch (error: any) {
       setErrors({ 
-        general: 'Network error. Please check your connection and try again.' 
+        general: error.message || 'Login failed. Please check your credentials and try again.' 
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -100,6 +77,7 @@ const LoginForm = () => {
       setErrors(prev => ({ ...prev, general: undefined }));
     }
   };
+
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -270,13 +248,6 @@ const LoginForm = () => {
           </svg>
           <span className="font-semibold">Continue with Google</span>
         </button>
-      </div>
-
-      {/* Demo Account Hint */}
-      <div className="mt-4 p-3 bg-[#F0F9FF] border border-[#B0D6FF] rounded-lg">
-        <p className="text-sm text-[#0A2342] text-center">
-          <strong>Demo Access:</strong> Use demo@compassionatemedi.com / demo123
-        </p>
       </div>
     </form>
   );

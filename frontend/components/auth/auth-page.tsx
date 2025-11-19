@@ -33,7 +33,7 @@ const AuthPage = () => {
   ];
 
   return (
-    <div className="bg-gradient-to-br from-[#F0F9FF] to-[#E6F7FF]">
+    <div className="">
       <div className="h-screen flex">
         
         {/* Left Column - Brand & Features */}
@@ -88,11 +88,11 @@ const AuthPage = () => {
 
         {/* Right Column - Authentication Forms */}
         <div className="flex-1 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 lg:flex-none">
-          <div className="mx-auto w-full max-w-sm lg:w-96">
+          <div className="mx-auto w-full max-w-md lg:w-96">
             
             {/* Mobile Brand */}
             <div className="lg:hidden flex items-center justify-center space-x-3 mb-8">
-              <div className="w-10 h-10 bg-[#B0D6FF] flex items-center justify-center">
+              <div className="w-10 h-10 flex items-center justify-center">
                 <Car className="w-6 h-6 text-[#0A2342]" />
               </div>
               <span className="text-xl font-semibold text-[#0A2342]">
@@ -101,7 +101,7 @@ const AuthPage = () => {
             </div>
 
             {/* Tab Navigation */}
-            <div className="bg-white rounded-lg shadow-sm border border-[#E6EAF0] mb-8">
+            <div className="bg-white mb-8">
               <div className="flex">
                 <button
                   onClick={() => setActiveTab('login')}
@@ -127,7 +127,7 @@ const AuthPage = () => {
             </div>
 
             {/* Forms */}
-            <div className="bg-white rounded-lg shadow-sm border border-[#E6EAF0] p-6">
+            <div className="bg-white">
               <AnimatePresence mode="wait">
                 {activeTab === 'login' ? (
                   <motion.div

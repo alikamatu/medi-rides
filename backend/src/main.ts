@@ -2,28 +2,13 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
-import * as session from 'express-session';
-import * as passport from 'passport';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-    app.use(
-    session({
-      secret: process.env.SESSION_SECRET || 'your-session-secret-key',
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
-        secure: process.env.NODE_ENV === 'production',
-        httpOnly: true,
-      },
-    }),
-  );
-
-    app.use(passport.initialize());
-  app.use(passport.session());
-
+  // ❌ NO SESSION MIDDLEWARE
+  // ❌ NO PASSPORT.SESSION()
+  // ❌ NO EXPRESS-SESSION
 
   // Global validation
   app.useGlobalPipes(
@@ -40,7 +25,7 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Swagger documentation
+  // Swagger
   const config = new DocumentBuilder()
     .setTitle('Compassionate Medi Rides API')
     .setDescription('Authentication API for Medi Rides')

@@ -35,7 +35,7 @@ const OAuthSuccessPage = () => {
         setCountdown((prev) => {
           if (prev <= 1) {
             clearInterval(timer);
-            router.push(redirectTo || '/dashboard');
+            router.push(redirectTo || '/customer-dashboard');
             return 0;
           }
           return prev - 1;
@@ -93,7 +93,7 @@ const OAuthSuccessPage = () => {
             </div>
             
             <button
-              onClick={() => router.push(redirectTo || '/dashboard')}
+              onClick={() => router.push(redirectTo || '/customer-dashboard')}
               className="w-full py-3 px-4 bg-[#0077B6] text-white rounded-lg hover:bg-[#005A8F] transition-colors duration-200 font-medium"
             >
               Continue to Dashboard

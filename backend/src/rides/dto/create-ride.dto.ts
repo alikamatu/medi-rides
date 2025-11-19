@@ -1,0 +1,55 @@
+import { 
+  IsString, 
+  IsEnum, 
+  IsDateString, 
+  IsOptional, 
+  IsNumber, 
+  Min, 
+  IsNotEmpty 
+} from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+
+export class CreateRideDto {
+  @ApiProperty({ description: 'Pickup location address' })
+  @IsString()
+  @IsNotEmpty()
+  pickup: string;
+
+  @ApiProperty({ description: 'Drop-off location address' })
+  @IsString()
+  @IsNotEmpty()
+  dropoff: string;
+
+  @ApiProperty({ 
+    description: 'Type of service',
+    enum: ['Medical Appointment', 'Wheelchair Transport', 'Errands', 'Airport Shuttle', 'Other']
+  })
+  @IsString()
+  @IsEnum(['Medical Appointment', 'Wheelchair Transport', 'Errands', 'Airport Shuttle', 'Other'])
+  serviceType: string;
+
+  @ApiProperty({ description: 'Ride date in YYYY-MM-DD format' })
+  @IsDateString()
+  date: string;
+
+  @ApiProperty({ description: 'Ride time in HH:MM format' })
+  @IsString()
+  time: string;
+
+  @ApiProperty({ description: 'Additional notes', required: false })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @ApiProperty({ description: 'Distance in kilometers', required: false })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  distanceKm?: number;
+
+  @ApiProperty({ description: 'Estimated time in minutes', required: false })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  estimatedTime?: number;
+}

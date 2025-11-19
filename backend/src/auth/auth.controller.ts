@@ -9,14 +9,13 @@ import {
   Req,
   Res,
   Query,
+  UnauthorizedException,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { Request, Response } from 'express';
+import { Response } from 'express';
 
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { LocalAuthGuard } from './guards/local-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -30,6 +29,7 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { GoogleOAuthGuard } from './guards/google-oauth.guard';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -45,16 +45,12 @@ export class AuthController {
     return this.authService.register(registerDto);
   }
 
-  @Public()
-  @UseGuards(LocalAuthGuard)
-  @Post('login')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Login user' })
-  @ApiResponse({ status: 200, description: 'Login successful' })
-  @ApiResponse({ status: 401, description: 'Invalid credentials' })
-  async login(@Body() loginDto: LoginDto, @CurrentUser() user: any): Promise<AuthResponse> {
-    return this.authService.login(loginDto);
-  }
+@Public()
+@Post('login')
+@HttpCode(HttpStatus.OK)
+async login(@Body() loginDto: LoginDto): Promise<AuthResponse> {
+  return this.authService.login(loginDto);
+}
 
   @Public()
   @Get('google')
@@ -106,6 +102,25 @@ async googleAuthRedirect(@Req() req: any, @Res() res: Response) {
     const errorRedirectUrl = `${process.env.FRONTEND_URL}/auth/error?message=${encodeURIComponent('Google authentication failed')}`;
     return res.redirect(errorRedirectUrl);
   }
+}
+
+@Post('change-password')
+@UseGuards(JwtAuthGuard)
+@ApiBearerAuth()
+@ApiOperation({ summary: 'Change user password' })
+@ApiResponse({ status: 200, description: 'Password changed successfully' })
+@ApiResponse({ status: 401, description: 'Invalid current password' })
+async changePassword(
+  @CurrentUser('sub') userId: number,
+  @Body() changePasswordDto: ChangePasswordDto,
+) {
+  console.log('🔐 Change Password - User ID:', userId);
+  
+  if (!userId) {
+    throw new UnauthorizedException('User ID not found. Please log in again.');
+  }
+
+  return this.authService.changePassword(userId, changePasswordDto);
 }
 
   @Public()
@@ -164,21 +179,46 @@ async googleAuthRedirect(@Req() req: any, @Res() res: Response) {
     return this.authService.getProfile(userId);
   }
 
-  @Post('profile')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update user profile' })
-  @ApiResponse({ status: 200, description: 'Profile updated' })
-  async updateProfile(
-    @CurrentUser('sub') userId: number,
-    @Body() updateProfileDto: UpdateProfileDto,
-  ) {
-    const user = await this.authService.updateProfile(userId, updateProfileDto);
-    return {
-      message: AUTH_SUCCESS.PROFILE_UPDATED,
-      user,
-    };
+// auth.controller.ts - FIXED approach using @CurrentUser()
+@Post('profile')
+@UseGuards(JwtAuthGuard)
+@ApiBearerAuth()
+@ApiOperation({ summary: 'Update user profile' })
+@ApiResponse({ status: 200, description: 'Profile updated' })
+async updateProfile(
+  @CurrentUser('sub') userId: number, // Use CurrentUser decorator instead of Req
+  @Body() updateProfileDto: UpdateProfileDto,
+) {
+  console.log('✅ Extracted user ID from CurrentUser:', userId);
+
+  if (!userId) {
+    console.error('❌ No user ID found from CurrentUser');
+    throw new UnauthorizedException('User ID not found');
   }
+
+  const updatedUser = await this.authService.updateProfile(userId, updateProfileDto);
+  return {
+    message: AUTH_SUCCESS.PROFILE_UPDATED,
+    user: updatedUser,
+  };
+}
+
+@Get('verify-token')
+@UseGuards(JwtAuthGuard)
+@ApiBearerAuth()
+@ApiOperation({ summary: 'Verify token validity' })
+async verifyToken(@CurrentUser() user: any) {
+  return {
+    valid: true,
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    },
+    timestamp: new Date().toISOString(),
+  };
+}
 
   @Get('admin')
   @UseGuards(JwtAuthGuard, RolesGuard)

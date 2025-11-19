@@ -36,7 +36,6 @@ model User {
   payments      Payment[]
   addresses     Address[]
 
-  vehicles       Vehicle[]
   availabilities DriverAvailability[]
   notifications  Notification[]
 
@@ -168,10 +167,7 @@ model RefreshToken {
 
 model Vehicle {
   id       Int  @id @default(autoincrement())
-  driverId Int
-  driver   User @relation(fields: [driverId], references: [id], onDelete: Cascade)
 
-  // Vehicle details
   make         String
   model        String
   year         Int
@@ -179,21 +175,28 @@ model Vehicle {
   licensePlate String
   vin          String?
 
-  // Vehicle specifications
   type                VehicleType
-  capacity            Int // Number of passengers
-  hasWheelchairAccess Boolean     @default(false)
-  hasOxygenSupport    Boolean     @default(false)
+  capacity            Int
+  hasWheelchairAccess Boolean @default(false)
+  hasOxygenSupport    Boolean @default(false)
 
-  // Insurance and registration
   insuranceExpiry    DateTime
   registrationExpiry DateTime
 
-  // Timestamps
+  // NEW FIELDS
+  status VehicleStatus @default(AVAILABLE)
+  images String[] @default([])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("vehicles")
+}
+
+enum VehicleStatus {
+  AVAILABLE
+  IN_USE
+  MAINTENANCE
 }
 
 model PatientProfile {
