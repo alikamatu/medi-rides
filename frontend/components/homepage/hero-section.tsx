@@ -4,12 +4,10 @@ import { motion } from 'framer-motion';
 
 const HeroSection = () => {
   const features = [
-    "Wheelchair accessible vehicles",
-    "On-time guaranteed",
-    "Professional medical drivers",
-    "24/7 availability",
-    "Insurance accepted",
-    "Comfortable and safe"
+    "ALI",
+    "APDD",
+    "IDD",
+    "ISW"
   ];
 
   return (
@@ -50,6 +48,15 @@ const HeroSection = () => {
             className="text-lg md:text-xl text-[#fff] mb-8 leading-relaxed"
           >
             Professional rides for medical appointments, therapy visits, airport transfers, and more.
+          </motion.p>
+
+            <motion.p
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
+            className="text-lg md:text-xl text-red-400 font-bold mb-8 leading-relaxed uppercase"
+          >
+            {features.join(" • ")}
           </motion.p>
 
           {/* CTA Buttons */}

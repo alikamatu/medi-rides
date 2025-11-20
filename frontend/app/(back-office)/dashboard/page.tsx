@@ -1,5 +1,4 @@
 import DashboardHome from "@/components/dashboard/dashboard-home";
-import DashboardLayout from "@/components/dashboard/dashboard-layout";
 
 // This would typically come from your auth system
 const getUserData = () => {
@@ -63,16 +62,11 @@ export default function DashboardPage() {
   const dashboardData = getDashboardData(userData.role);
 
   return (
-    <DashboardLayout
-      userRole={userData.role}
-      userName={userData.name}
-      userEmail={userData.email}
-    >
+
       <DashboardHome
         userRole={userData.role}
         stats={dashboardData.stats}
         recentRides={dashboardData.recentRides}
       />
-    </DashboardLayout>
   );
 }

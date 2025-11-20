@@ -3,8 +3,8 @@
 import { motion } from 'framer-motion';
 import { Users, Car, CheckCircle, DollarSign, UserCheck, Car as CarIcon } from 'lucide-react';
 import { useAdminBookingManagement } from '@/hooks/useAdminBookingManagement';
-import CustomerManagement from '@/components/dashboard/admin/customer-management';
-import RideManagement from '@/components/dashboard/admin/ride-management';
+import CustomerManagement from '@/components/dashboard/admin/rides/customer-management';
+import RideManagement from '@/components/dashboard/admin/rides/ride-management';
 
 export default function AdminBookingManagementPage() {
   const {

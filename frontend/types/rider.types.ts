@@ -1,3 +1,4 @@
+// rider.types.ts
 export interface Rider {
   id: number;
   name: string;
@@ -12,11 +13,19 @@ export interface Rider {
   rating: number;
   totalTrips: number;
   vehicle: {
+    id: number;
     make: string;
     model: string;
     licensePlate: string;
     type: string;
     capacity: number;
+    year: number;
+    color: string;
+    vin?: string;
+    hasWheelchairAccess: boolean;
+    hasOxygenSupport: boolean;
+    insuranceExpiry: string;
+    registrationExpiry: string;
   } | null;
   createdAt: string;
   lastLoginAt?: string;
@@ -53,4 +62,17 @@ export interface UpdateRiderData {
   licenseExpiry?: string;
   avatar?: string;
   status?: 'ACTIVE' | 'INACTIVE';
+  // Vehicle update fields
+  vehicleMake?: string;
+  vehicleModel?: string;
+  vehicleYear?: number;
+  vehicleColor?: string;
+  licensePlate?: string;
+  vin?: string;
+  vehicleType?: string;
+  capacity?: number;
+  hasWheelchairAccess?: boolean;
+  hasOxygenSupport?: boolean;
+  insuranceExpiry?: string;
+  registrationExpiry?: string;
 }

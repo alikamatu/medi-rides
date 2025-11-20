@@ -9,6 +9,8 @@ import { PrismaService } from 'prisma/prisma.service';
 import { RidesModule } from './rides/rides.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
+import { DriversModule } from './driver/drivers.module';
+import { DriverDashboardModule } from './driver/driver-dashboard.module';
 
 @Module({
   imports: [
@@ -19,7 +21,9 @@ import { VehiclesModule } from './vehicles/vehicles.module';
     AuthModule,
     RidesModule,
     CloudinaryModule,
-    VehiclesModule
+    VehiclesModule,
+    DriversModule,
+    DriverDashboardModule
   ],
   providers: [
     PrismaService,

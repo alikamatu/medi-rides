@@ -166,29 +166,27 @@ model RefreshToken {
 }
 
 model Vehicle {
-  id       Int  @id @default(autoincrement())
-
-  make         String
-  model        String
-  year         Int
-  color        String
-  licensePlate String
-  vin          String?
-
+  id                  Int           @id @default(autoincrement())
+  driverId            Int?          // Make this optional for unassigned vehicles
+  make                String
+  model               String
+  year                Int
+  color               String
+  licensePlate        String        @unique
+  vin                 String?
   type                VehicleType
   capacity            Int
-  hasWheelchairAccess Boolean @default(false)
-  hasOxygenSupport    Boolean @default(false)
+  hasWheelchairAccess Boolean       @default(false)
+  hasOxygenSupport    Boolean       @default(false)
+  insuranceExpiry     DateTime
+  registrationExpiry  DateTime
+  status              VehicleStatus @default(AVAILABLE)
+  images              String[]      @default([])
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
 
-  insuranceExpiry    DateTime
-  registrationExpiry DateTime
-
-  // NEW FIELDS
-  status VehicleStatus @default(AVAILABLE)
-  images String[] @default([])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  driverProfileId Int?
+  driverProfile   DriverProfile? @relation(fields: [driverProfileId], references: [id])
 
   @@map("vehicles")
 }
@@ -224,10 +222,13 @@ model DriverProfile {
   isAvailable   Boolean  @default(true)
   rating        Float?   @default(5.0)
   totalTrips    Int      @default(0)
-
+  
   // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Add relationship to vehicles
+  vehicles Vehicle[]
 
   @@map("driver_profiles")
 }

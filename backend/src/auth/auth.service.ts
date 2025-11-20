@@ -314,8 +314,8 @@ async googleLogin(googleUser: any): Promise<AuthResponse> {
     const baseUrl = this.configService.get('FRONTEND_URL') || 'http://localhost:3000';
     
     const redirectPaths = {
-      [UserRole.ADMIN]: '/admin/dashboard',
-      [UserRole.DRIVER]: '/driver/dashboard',
+      [UserRole.ADMIN]: '/dashboard',
+      [UserRole.DRIVER]: '/driver-dashboard',
       [UserRole.DISPATCHER]: '/dispatcher/dashboard',
       [UserRole.CUSTOMER]: '/customer-dashboard',
     };

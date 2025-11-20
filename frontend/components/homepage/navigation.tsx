@@ -37,8 +37,6 @@ const Navigation = () => {
   const navItems = [
     { name: 'Home', href: '/', icon: null, auth: false },
     { name: 'Services', href: '/services', icon: Calendar, auth: false },
-    { name: 'Medical Appointments', href: '#appointments', icon: Calendar, auth: false },
-    { name: 'Non-Medical Occasions', href: '#non-medical', icon: Car, auth: false },
     { name: 'Contact', href: '#contact', icon: Phone, auth: false },
     // Authenticated-only items
     { name: 'Dashboard', href: '/customer-dashboard', icon: Settings, auth: true },
@@ -169,17 +167,10 @@ const Navigation = () => {
               <div className="flex items-center space-x-3">
                 <Link
                   href="/auth"
-                  className="text-[#0A2342] hover:text-[#B0D6FF] transition-colors duration-200 font-medium"
-                >
-                  Sign In
-                </Link>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
                   className="bg-[#B0D6FF] text-white px-6 py-2.5 font-semibold transition-colors duration-200 hover:bg-[#9BC9FF] border-0 rounded-lg"
                 >
-                  <Link href="/auth">Book a Ride</Link>
-                </motion.button>
+                  Book a Ride
+                </Link>
               </div>
             )}
           </div>
