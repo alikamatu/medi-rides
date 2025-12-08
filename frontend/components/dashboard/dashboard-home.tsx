@@ -1,243 +1,257 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, Car, DollarSign, TrendingUp, MapPin, Clock } from 'lucide-react';
+import DashboardWidget from './dashboard-widget';
+import RideList from './ride-list';
+import AnalyticsSection from './analytics-section';
+import { DashboardStats, Ride } from '@/types/dashboard.types';
 
 interface DashboardHomeProps {
   userRole: 'CUSTOMER' | 'DRIVER' | 'ADMIN';
-  stats: {
-    totalRides: number;
-    upcomingRides: number;
-    completedRides: number;
-    revenue?: number;
-    rating?: number;
-  };
-  recentRides: Array<{
-    id: number;
-    pickup: string;
-    dropoff: string;
-    scheduledAt: string;
-    status: string;
-    serviceType: string;
-  }>;
+  stats?: DashboardStats;
+  recentRides?: Ride[];
 }
 
-const DashboardHome = ({ userRole, stats, recentRides }: DashboardHomeProps) => {
-  const getRoleSpecificContent = () => {
-    switch (userRole) {
-      case 'CUSTOMER':
-        return {
-          welcome: `Welcome back! Ready for your next ride?`,
-          primaryAction: { label: 'Book New Ride', href: '#book-ride' },
-          stats: [
-            { label: 'Total Rides', value: stats.totalRides, icon: Car },
-            { label: 'Upcoming Rides', value: stats.upcomingRides, icon: Calendar },
-            { label: 'Completed', value: stats.completedRides, icon: TrendingUp },
-          ]
-        };
-      case 'DRIVER':
-        return {
-          welcome: `Good day! Check your assigned rides.`,
-          primaryAction: { label: 'View Assignments', href: '#assigned-rides' },
-          stats: [
-            { label: 'Assigned Rides', value: stats.upcomingRides, icon: Car },
-            { label: 'Completed Today', value: stats.completedRides, icon: TrendingUp },
-            { label: 'Your Rating', value: `${stats.rating}/5`, icon: TrendingUp },
-          ]
-        };
-      case 'ADMIN':
-        return {
-          welcome: `System Overview`,
-          primaryAction: { label: 'Manage Rides', href: '#ride-management' },
-          stats: [
-            { label: 'Total Rides', value: stats.totalRides, icon: Car },
-            { label: 'Pending Assignments', value: stats.upcomingRides, icon: Calendar },
-            { label: 'Revenue', value: `$${stats.revenue}`, icon: DollarSign },
-          ]
-        };
-    }
-  };
-
-  const content = getRoleSpecificContent();
-
-  const getStatusColor = (status: string) => {
-    const colors = {
-      PENDING: 'bg-yellow-100 text-yellow-800',
-      ASSIGNED: 'bg-blue-100 text-blue-800',
-      IN_PROGRESS: 'bg-purple-100 text-purple-800',
-      COMPLETED: 'bg-green-100 text-green-800',
-      CANCELLED: 'bg-red-100 text-red-800',
-    };
-    return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
-  };
-
-  return (
-    <div className="space-y-8">
-      {/* Welcome Section */}
-      <motion.div
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        className="bg-white border border-[#E2E8F0] p-6 rounded-lg"
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-[#0A2342]">
-              {content.welcome}
-            </h1>
-            <p className="text-[#64748B] mt-1">
-              {userRole === 'CUSTOMER' && 'Book your medical or general transportation with ease.'}
-              {userRole === 'DRIVER' && 'Stay updated with your ride assignments and schedule.'}
-              {userRole === 'ADMIN' && 'Monitor system performance and manage operations.'}
-            </p>
-          </div>
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="mt-4 sm:mt-0 bg-[#0077B6] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#005A8F] transition-colors duration-200"
-          >
-            {content.primaryAction.label}
-          </motion.button>
-        </div>
-      </motion.div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {content.stats.map((stat, index) => (
-          <motion.div
-            key={stat.label}
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: index * 0.1 }}
-            className="bg-white border border-[#E2E8F0] p-6 rounded-lg"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-[#64748B]">{stat.label}</p>
-                <p className="text-2xl font-bold text-[#0A2342] mt-1">{stat.value}</p>
-              </div>
-              <div className="w-12 h-12 bg-[#B0D6FF] rounded-lg flex items-center justify-center">
-                <stat.icon className="w-6 h-6 text-[#0A2342]" />
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Recent Rides */}
-      <motion.div
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.3 }}
-        className="bg-white border border-[#E2E8F0] rounded-lg"
-      >
-        <div className="p-6 border-b border-[#E2E8F0]">
-          <h2 className="text-lg font-semibold text-[#0A2342]">
-            {userRole === 'ADMIN' ? 'Recent Rides' : 'Your Recent Rides'}
-          </h2>
-        </div>
-        
-        <div className="p-6">
-          {recentRides.length > 0 ? (
-            <div className="space-y-4">
-              {recentRides.map((ride, index) => (
-                <motion.div
-                  key={ride.id}
-                  initial={{ x: -20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="flex items-center justify-between p-4 border border-[#E2E8F0] rounded-lg hover:border-[#B0D6FF] transition-colors duration-200"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className="w-10 h-10 bg-[#F5F7FA] border border-[#E2E8F0] rounded-lg flex items-center justify-center">
-                      <Car className="w-5 h-5 text-[#0A2342]" />
-                    </div>
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <MapPin className="w-4 h-4 text-[#64748B]" />
-                        <span className="font-medium text-[#0A2342]">
-                          {ride.pickup} → {ride.dropoff}
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-4 mt-1">
-                        <div className="flex items-center space-x-1">
-                          <Clock className="w-3 h-3 text-[#64748B]" />
-                          <span className="text-sm text-[#64748B]">
-                            {new Date(ride.scheduledAt).toLocaleDateString()}
-                          </span>
-                        </div>
-                        <span className="text-sm text-[#64748B] capitalize">
-                          {ride.serviceType.toLowerCase()}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(ride.status)}`}>
-                      {ride.status.replace('_', ' ')}
-                    </span>
-                    {userRole === 'ADMIN' && (
-                      <button className="text-[#0077B6] hover:text-[#005A8F] text-sm font-medium">
-                        View Details
-                      </button>
-                    )}
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <Car className="w-12 h-12 text-[#E2E8F0] mx-auto mb-4" />
-              <p className="text-[#64748B]">No rides found</p>
-              <p className="text-sm text-[#64748B] mt-1">
-                {userRole === 'CUSTOMER' && 'Book your first ride to get started!'}
-                {userRole === 'DRIVER' && 'You have no assigned rides at the moment.'}
-                {userRole === 'ADMIN' && 'No ride data available.'}
-              </p>
-            </div>
-          )}
-        </div>
-      </motion.div>
-
-      {/* Quick Actions */}
-      {(userRole === 'CUSTOMER' || userRole === 'DRIVER') && (
-        <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.4 }}
-          className="bg-white border border-[#E2E8F0] rounded-lg p-6"
-        >
-          <h3 className="text-lg font-semibold text-[#0A2342] mb-4">Quick Actions</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {userRole === 'CUSTOMER' && (
-              <>
-                <button className="flex items-center space-x-3 p-4 border border-[#E2E8F0] rounded-lg hover:border-[#B0D6FF] transition-colors duration-200">
-                  <MapPin className="w-5 h-5 text-[#0077B6]" />
-                  <span className="font-medium text-[#0A2342]">Update Address</span>
-                </button>
-                <button className="flex items-center space-x-3 p-4 border border-[#E2E8F0] rounded-lg hover:border-[#B0D6FF] transition-colors duration-200">
-                  <DollarSign className="w-5 h-5 text-[#0077B6]" />
-                  <span className="font-medium text-[#0A2342]">Payment Methods</span>
-                </button>
-              </>
-            )}
-            {userRole === 'DRIVER' && (
-              <>
-                <button className="flex items-center space-x-3 p-4 border border-[#E2E8F0] rounded-lg hover:border-[#B0D6FF] transition-colors duration-200">
-                  <Calendar className="w-5 h-5 text-[#0077B6]" />
-                  <span className="font-medium text-[#0A2342]">Set Availability</span>
-                </button>
-                <button className="flex items-center space-x-3 p-4 border border-[#E2E8F0] rounded-lg hover:border-[#B0D6FF] transition-colors duration-200">
-                  <TrendingUp className="w-5 h-5 text-[#0077B6]" />
-                  <span className="font-medium text-[#0A2342]">View Earnings</span>
-                </button>
-              </>
-            )}
-          </div>
-        </motion.div>
-      )}
-    </div>
-  );
+// Default stats to prevent undefined errors
+const defaultStats: DashboardStats = {
+  totalRides: 0,
+  upcomingRides: 0,
+  completedRides: 0,
+  todayRides: 0,
+  totalRevenue: 0,
+  ridesThisWeek: 0,
 };
 
-export default DashboardHome;
+const defaultRecentRides: Ride[] = [];
+
+export default function DashboardHome({ 
+  userRole, 
+  stats: initialStats,
+  recentRides: initialRecentRides 
+}: DashboardHomeProps) {
+  const [activeTab, setActiveTab] = useState<'today' | 'upcoming' | 'completed'>('today');
+  const [stats, setStats] = useState<DashboardStats>(() => ({
+    ...defaultStats,
+    ...initialStats, // Merge with initialStats if provided
+  }));
+  const [recentRides, setRecentRides] = useState<Ride[]>(initialRecentRides || defaultRecentRides);
+  const [loading, setLoading] = useState(false);
+
+  // If stats prop changes, update state
+  useEffect(() => {
+    if (initialStats) {
+      setStats(prev => ({
+        ...prev,
+        ...initialStats,
+      }));
+    }
+  }, [initialStats]);
+
+  // If recentRides prop changes, update state
+  useEffect(() => {
+    if (initialRecentRides) {
+      setRecentRides(initialRecentRides);
+    }
+  }, [initialRecentRides]);
+
+  // Optional: Fetch dashboard data if not provided
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      // Only fetch if we don't have any data
+      if (initialStats || initialRecentRides) return;
+      
+      try {
+        setLoading(true);
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+          setLoading(false);
+          return;
+        }
+
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/dashboard`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.data) {
+            setStats({
+              ...defaultStats,
+              ...data.data.stats,
+            });
+            setRecentRides(data.data.recentRides || []);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [initialStats, initialRecentRides]);
+
+  // Safe value getter for stats
+  const getStatValue = (key: keyof DashboardStats): string => {
+    return stats[key]?.toString() || '0';
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-32 bg-gray-200 rounded-xl"></div>
+              ))}
+            </div>
+            <div className="h-64 bg-gray-200 rounded-xl mb-8"></div>
+            <div className="h-96 bg-gray-200 rounded-xl"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
+        >
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-600 mt-2">
+            Welcome back! Here's an overview of your rides and activities.
+          </p>
+        </motion.div>
+
+        {/* Stats Widgets */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.1 }}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
+        >
+          <DashboardWidget
+            title="Today's Rides"
+            value={getStatValue('todayRides')}
+            change={userRole === 'ADMIN' ? '+2 from yesterday' : undefined}
+            icon="today"
+            color="blue"
+          />
+          
+          <DashboardWidget
+            title="Upcoming Rides"
+            value={getStatValue('upcomingRides')}
+            change={userRole === 'ADMIN' ? '3 scheduled this week' : undefined}
+            icon="upcoming"
+            color="green"
+          />
+          
+          <DashboardWidget
+            title="Completed Rides"
+            value={getStatValue('completedRides')}
+            change={userRole === 'ADMIN' ? '+12% this month' : undefined}
+            icon="completed"
+            color="purple"
+          />
+          
+          {userRole === 'ADMIN' ? (
+            <DashboardWidget
+              title="Total Revenue"
+              value={`$${stats.totalRevenue.toLocaleString()}`}
+              change="+15% from last month"
+              icon="revenue"
+              color="amber"
+            />
+          ) : (
+            <DashboardWidget
+              title="Total Rides"
+              value={getStatValue('totalRides')}
+              change="All time total"
+              icon="total"
+              color="indigo"
+            />
+          )}
+        </motion.div>
+
+        {/* Analytics Section (Admin only or with role-specific data) */}
+        {userRole === 'ADMIN' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="mb-8"
+          >
+            <AnalyticsSection userRole={userRole} />
+          </motion.div>
+        )}
+
+        {/* Ride Views Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-white rounded-2xl shadow-sm border border-gray-200"
+        >
+          <div className="border-b border-gray-200">
+            <div className="px-6 py-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                <h2 className="text-xl font-semibold text-gray-900">Ride Management</h2>
+                <div className="flex space-x-2 mt-4 sm:mt-0">
+                  <button
+                    onClick={() => setActiveTab('today')}
+                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
+                      activeTab === 'today'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    Today's Rides
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('upcoming')}
+                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
+                      activeTab === 'upcoming'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    Upcoming
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('completed')}
+                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
+                      activeTab === 'completed'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    Completed
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6">
+            <RideList
+              activeTab={activeTab}
+              userRole={userRole}
+              recentRides={recentRides}
+            />
+          </div>
+        </motion.div>
+      </div>
+    </div>
+  );
+}

@@ -15,12 +15,26 @@ import { DriverRidesModule } from './driver/driver-rides.module';
 import { ServiceCategoriesModule } from './service-categories/service-categories.module';
 import { PublicModule } from './public/public.module';
 import { InvoiceModule } from './invoice/invoice.module';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
+import { DashboardModule } from './dashboard/dashboard.module';
+import { AnalyticsModule } from './dashboard/analytics.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       load: [authConfig],
+    }),
+    // Fix 1: Serve from project root, not dist folder
+    ServeStaticModule.forRoot({
+      rootPath: join(process.cwd(), 'uploads'),
+      serveRoot: '/uploads',
+    }),
+    // Fix 2: Alternatively, serve only invoices folder
+    ServeStaticModule.forRoot({
+      rootPath: join(process.cwd(), 'uploads', 'invoices'),
+      serveRoot: '/uploads/invoices',
     }),
     AuthModule,
     RidesModule,
@@ -33,6 +47,8 @@ import { InvoiceModule } from './invoice/invoice.module';
     ServiceCategoriesModule,
     PublicModule,
     InvoiceModule,
+    DashboardModule,
+    AnalyticsModule,
   ],
   providers: [
     PrismaService,

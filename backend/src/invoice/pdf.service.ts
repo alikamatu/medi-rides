@@ -6,135 +6,159 @@ import PDFKit from 'pdfkit';
 
 @Injectable()
 export class PDFService {
-  async generateInvoice(invoice: any): Promise<Buffer> {
-    return new Promise((resolve, reject) => {
-      try {
-        const doc = new PDFDocument({
-          size: 'A4',
-          margin: 50,
-        });
-
-        const buffers: Buffer[] = [];
-        doc.on('data', buffers.push.bind(buffers));
-        doc.on('end', () => {
-          const pdfData = Buffer.concat(buffers);
-          resolve(pdfData);
-        });
-
-        // Company Header
-        doc
-          .fontSize(20)
-          .fillColor('#333333')
-          .text('TRANSPORT SERVICES', { align: 'center' })
-          .moveDown();
-
-        doc
-          .fontSize(10)
-          .fillColor('#666666')
-          .text('123 Business Street, City, State 12345', { align: 'center' })
-          .text('Phone: (555) 123-4567 | Email: info@transportsvc.com', { align: 'center' })
-          .moveDown(2);
-
-        // Invoice Title
-        doc
-          .fontSize(24)
-          .fillColor('#2c5282')
-          .text('INVOICE', { align: 'center' })
-          .moveDown();
-
-        // Invoice Details
-        doc
-          .fontSize(12)
-          .fillColor('#333333');
-
-        // Left column
-        const leftX = 50;
-        doc.text('Bill To:', leftX, doc.y, { continued: false });
-        doc.font('Helvetica-Bold').text(invoice.ride.customer.name, leftX + 80, doc.y - 20);
-        doc.font('Helvetica');
-        
-        if (invoice.ride.customer.email) {
-          doc.text(invoice.ride.customer.email, leftX + 80, doc.y);
-        }
-        
-        if (invoice.ride.customer.phone) {
-          doc.text(invoice.ride.customer.phone, leftX + 80, doc.y);
-        }
-
-        // Right column
-        const rightX = 350;
-        doc
-          .text('Invoice #:', rightX, 200, { continued: false })
-          .font('Helvetica-Bold')
-          .text(invoice.invoiceNumber, rightX + 80, 200);
-
-        doc
-          .font('Helvetica')
-          .text('Invoice Date:', rightX, doc.y + 20, { continued: false })
-          .font('Helvetica-Bold')
-          .text(new Date(invoice.issuedDate).toLocaleDateString(), rightX + 80, doc.y);
-
-        doc
-          .font('Helvetica')
-          .text('Due Date:', rightX, doc.y + 20, { continued: false })
-          .font('Helvetica-Bold')
-          .text(new Date(invoice.dueDate).toLocaleDateString(), rightX + 80, doc.y);
-
-        // Ride Details Section
-        doc.moveDown(3);
-        doc
-          .fontSize(14)
-          .fillColor('#2c5282')
-          .text('Ride Details', { underline: true })
-          .moveDown();
-
-        doc
-          .fontSize(11)
-          .fillColor('#333333');
-
-        const rideDetails = [
-          ['Ride ID:', invoice.ride.id.toString()],
-          ['Date:', new Date(invoice.ride.date).toLocaleDateString()],
-          ['Time:', invoice.ride.time],
-          ['Pickup:', invoice.ride.pickupAddress],
-          ['Dropoff:', invoice.ride.dropoffAddress],
-        ];
-
-        rideDetails.forEach(([label, value]) => {
-          doc.text(label, leftX, doc.y, { continued: false });
-          doc.text(value, leftX + 100, doc.y);
-        });
-
-        // Invoice Items Table
-        doc.moveDown(3);
-        this.createInvoiceTable(doc, invoice);
-
-        // Payment Instructions
-        doc.moveDown(4);
-        doc
-          .fontSize(10)
-          .fillColor('#666666')
-          .text('Payment Instructions:', leftX, doc.y)
-          .moveDown(0.5);
-
-        doc.text('• Make payment via bank transfer to account #: 1234567890', leftX, doc.y);
-        doc.text('• Please include invoice number as reference', leftX, doc.y);
-        doc.text('• Payment due within 30 days', leftX, doc.y);
-
-        // Footer
-        const bottomY = doc.page.height - 100;
-        doc
-          .fontSize(8)
-          .fillColor('#999999')
-          .text('Thank you for your business!', 50, bottomY, { align: 'center' })
-          .text('For any questions, please contact: support@transportsvc.com', 50, doc.y + 10, { align: 'center' });
-
-        doc.end();
-      } catch (error) {
-        reject(error);
+async generateInvoice(invoice: any): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    try {
+      // Validate required data
+      if (!invoice.ride) {
+        reject(new Error('Ride information is missing'));
+        return;
       }
-    });
-  }
+
+      const doc = new PDFDocument({
+        size: 'A4',
+        margin: 50,
+      });
+
+      const buffers: Buffer[] = [];
+      doc.on('data', buffers.push.bind(buffers));
+      doc.on('end', () => {
+        const pdfData = Buffer.concat(buffers);
+        resolve(pdfData);
+      });
+
+      // Company Header
+      doc
+        .fontSize(20)
+        .fillColor('#333333')
+        .text('TRANSPORT SERVICES', { align: 'center' })
+        .moveDown();
+
+      doc
+        .fontSize(10)
+        .fillColor('#666666')
+        .text('123 Business Street, City, State 12345', { align: 'center' })
+        .text('Phone: (555) 123-4567 | Email: info@transportsvc.com', { align: 'center' })
+        .moveDown(2);
+
+      // Invoice Title
+      doc
+        .fontSize(24)
+        .fillColor('#2c5282')
+        .text('INVOICE', { align: 'center' })
+        .moveDown();
+
+      // Invoice Details
+      doc
+        .fontSize(12)
+        .fillColor('#333333');
+
+      // Determine customer information (handle guest rides)
+      const isGuest = invoice.ride.isGuest || !invoice.ride.customer;
+      const customerName = isGuest 
+        ? (invoice.ride.passengerName || 'Guest Customer')
+        : (invoice.ride.customer?.name || 'N/A');
+      const customerEmail = isGuest 
+        ? '' 
+        : (invoice.ride.customer?.email || '');
+      const customerPhone = isGuest 
+        ? (invoice.ride.passengerPhone || '')
+        : (invoice.ride.customer?.phone || '');
+
+      // Left column - Bill To
+      const leftX = 50;
+      doc.text('Bill To:', leftX, doc.y, { continued: false });
+      
+      doc.font('Helvetica-Bold').text(customerName, leftX + 80, doc.y - 20);
+      doc.font('Helvetica');
+      
+      if (isGuest) {
+        doc.text('Guest Booking', leftX + 80, doc.y);
+      }
+      
+      if (customerEmail) {
+        doc.text(customerEmail, leftX + 80, doc.y);
+      }
+      
+      if (customerPhone) {
+        doc.text(customerPhone, leftX + 80, doc.y);
+      }
+
+      // Right column - Invoice Info
+      const rightX = 350;
+      doc
+        .text('Invoice #:', rightX, 200, { continued: false })
+        .font('Helvetica-Bold')
+        .text(invoice.invoiceNumber || 'N/A', rightX + 80, 200);
+
+      doc
+        .font('Helvetica')
+        .text('Invoice Date:', rightX, doc.y + 20, { continued: false })
+        .font('Helvetica-Bold')
+        .text(new Date(invoice.issuedDate).toLocaleDateString(), rightX + 80, doc.y);
+
+      doc
+        .font('Helvetica')
+        .text('Due Date:', rightX, doc.y + 20, { continued: false })
+        .font('Helvetica-Bold')
+        .text(new Date(invoice.dueDate).toLocaleDateString(), rightX + 80, doc.y);
+
+      // Ride Details Section
+      doc.moveDown(3);
+      doc
+        .fontSize(14)
+        .fillColor('#2c5282')
+        .text('Ride Details', { underline: true })
+        .moveDown();
+
+      doc
+        .fontSize(11)
+        .fillColor('#333333');
+
+      const rideDetails = [
+        ['Ride ID:', invoice.ride.id.toString()],
+        ['Date:', new Date(invoice.ride.scheduledAt).toLocaleDateString()],
+        ['Pickup:', invoice.ride.pickupAddress || 'N/A'],
+        ['Dropoff:', invoice.ride.dropoffAddress || 'N/A'],
+      ];
+
+      rideDetails.forEach(([label, value]) => {
+        doc.text(label, leftX, doc.y, { continued: false });
+        doc.text(value, leftX + 100, doc.y);
+      });
+
+      // Invoice Items Table
+      doc.moveDown(3);
+      this.createInvoiceTable(doc, invoice);
+
+      // Payment Instructions
+      doc.moveDown(4);
+      doc
+        .fontSize(10)
+        .fillColor('#666666')
+        .text('Payment Instructions:', leftX, doc.y)
+        .moveDown(0.5);
+
+      doc.text('• Make payment via bank transfer to account #: 1234567890', leftX, doc.y);
+      doc.text('• Please include invoice number as reference', leftX, doc.y);
+      doc.text('• Payment due within 30 days', leftX, doc.y);
+
+      // Footer
+      const bottomY = doc.page.height - 100;
+      doc
+        .fontSize(8)
+        .fillColor('#999999')
+        .text('Thank you for your business!', 50, bottomY, { align: 'center' })
+        .text('For any questions, please contact: support@transportsvc.com', 50, doc.y + 10, { align: 'center' });
+
+      doc.end();
+    } catch (error) {
+      console.error('PDF Generation Error:', error);
+      reject(error);
+    }
+  });
+}
+
   private createInvoiceTable(doc: InstanceType<typeof PDFDocument>, invoice: any) {
     const tableTop = doc.y;
     const itemX = 50;

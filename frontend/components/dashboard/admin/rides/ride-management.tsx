@@ -151,8 +151,18 @@ const handleDownloadInvoice = async (invoiceId: number, pdfUrl?: string) => {
   try {
     const token = localStorage.getItem('access_token');
     
-    // If no pdfUrl, try to regenerate it first
-    if (!pdfUrl) {
+    // If pdfUrl exists and is a full URL, open it directly
+    if (pdfUrl) {
+      const fullUrl = pdfUrl.startsWith('http') 
+        ? pdfUrl 
+        : `${process.env.NEXT_PUBLIC_API_URL}${pdfUrl}`;
+      
+      window.open(fullUrl, '_blank');
+      return;
+    }
+    
+    // If no pdfUrl, try to regenerate it
+    try {
       const regenerateResponse = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/invoices/${invoiceId}/regenerate-pdf`,
         {
@@ -164,23 +174,26 @@ const handleDownloadInvoice = async (invoiceId: number, pdfUrl?: string) => {
         }
       );
       
-      if (regenerateResponse.ok) {
-        const regenerateData = await regenerateResponse.json();
-        pdfUrl = regenerateData.data.pdfUrl;
+      if (!regenerateResponse.ok) {
+        throw new Error(`Regenerate failed: ${regenerateResponse.status}`);
       }
-    }
-    
-    // If we have pdfUrl now, download it
-    if (pdfUrl) {
-      const fullUrl = pdfUrl.startsWith('http') 
-        ? pdfUrl 
-        : `${process.env.NEXT_PUBLIC_API_URL}${pdfUrl}`;
       
-      window.open(fullUrl, '_blank');
-      return;
+      const regenerateData = await regenerateResponse.json();
+      
+      if (regenerateData.data?.pdfUrl) {
+        const fullUrl = regenerateData.data.pdfUrl.startsWith('http')
+          ? regenerateData.data.pdfUrl
+          : `${process.env.NEXT_PUBLIC_API_URL}${regenerateData.data.pdfUrl}`;
+        
+        window.open(fullUrl, '_blank');
+        return;
+      }
+      
+      throw new Error('PDF URL not available after regeneration');
+    } catch (regenerateError) {
+      console.error('Regeneration error:', regenerateError);
+      throw new Error('Failed to regenerate invoice PDF. The invoice may need to be created first.');
     }
-    
-    throw new Error('Unable to generate or retrieve invoice PDF');
   } catch (error) {
     console.error('Error downloading invoice:', error);
     
@@ -188,14 +201,27 @@ const handleDownloadInvoice = async (invoiceId: number, pdfUrl?: string) => {
       ? error.message 
       : 'Failed to download invoice';
     
-    alert(`Unable to download invoice: ${errorMessage}\n\nPlease contact support if this issue persists.`);
+    alert(`Unable to download invoice: ${errorMessage}\n\nPlease try:\n1. Generating the invoice first if it doesn't exist\n2. Contacting support if the issue persists`);
   }
 };
 
 const renderInvoiceButton = (ride: RideRequest) => {
+  // Only show invoice button for completed rides
   if (ride.status !== 'COMPLETED') return null;
   
-  if (ride.invoice && ride.invoice.id) {
+  // Check if it's a guest ride without customer
+  const isGuestWithoutCustomer = ride.isGuest && !ride.customerId;
+  
+  // If guest ride without customer, show message
+  if (isGuestWithoutCustomer) {
+    return (
+      <div className="text-sm text-gray-600 italic">
+        Guest ride - Invoice not available
+      </div>
+    );
+  }
+
+    if (ride.invoice && ride.invoice.id) {
     return (
       <button
         onClick={() => handleDownloadInvoice(ride.invoice!.id, ride.invoice!.pdfUrl)}
@@ -208,8 +234,8 @@ const renderInvoiceButton = (ride: RideRequest) => {
     );
   }
     
-return (
-   <button
+ return (
+    <button
       onClick={async () => {
         try {
           setLoading(true);
@@ -225,20 +251,25 @@ return (
             }
           );
           
-          if (response.ok) {
-            const data = await response.json();
-            alert('Invoice generated successfully!');
-            // Download immediately if PDF is available
-            if (data.data.pdfUrl) {
-              handleDownloadInvoice(data.data.id, data.data.pdfUrl);
-            }
-            window.location.reload();
-          } else {
-            throw new Error('Failed to generate invoice');
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to generate invoice');
           }
+          
+          const data = await response.json();
+          alert('Invoice generated successfully!');
+          
+          // Download immediately if PDF is available
+          if (data.data.pdfUrl) {
+            handleDownloadInvoice(data.data.id, data.data.pdfUrl);
+          }
+          
+          // Refresh the page to show updated invoice
+          window.location.reload();
         } catch (error) {
           console.error('Error generating invoice:', error);
-          alert('Failed to generate invoice. Please try again.');
+          const message = error instanceof Error ? error.message : 'Unknown error';
+          alert(`Failed to generate invoice: ${message}`);
         } finally {
           setLoading(false);
         }

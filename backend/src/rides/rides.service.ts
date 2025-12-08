@@ -416,6 +416,13 @@ private async calculateBasePrice(
             status: true,
             amount: true
           }
+        },
+        invoice: {
+          select: {
+            id: true,
+            pdfUrl: true,
+            invoiceNumber: true
+          }
         }
       }
     });
@@ -480,6 +487,16 @@ private async calculateBasePrice(
             method: true,
             transactionId: true,
             paidAt: true
+          }
+        },
+        invoice: {
+          select: {
+            id: true,
+            pdfUrl: true,
+            invoiceNumber: true,
+            status: true,
+            amount: true,
+            dueDate: true
           }
         }
       }

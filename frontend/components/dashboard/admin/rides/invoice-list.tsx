@@ -80,31 +80,69 @@ export default function InvoiceList({ customerId }: InvoiceListProps) {
     }
   };
 
-  const downloadInvoice = async (invoiceId: number, invoiceNumber: string) => {
-    try {
-      const token = localStorage.getItem('access_token');
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/invoices/${invoiceId}/download`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!response.ok) throw new Error('Failed to download invoice');
-
-      const data = await response.json();
-      
-      // Open PDF in new tab or download
-      if (data.data.downloadUrl) {
-        window.open(data.data.downloadUrl, '_blank');
+const downloadInvoice = async (invoiceId: number, invoiceNumber: string) => {
+  try {
+    const token = localStorage.getItem('access_token');
+    
+    // First, get the invoice details to check for pdfUrl
+    const invoiceResponse = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/invoices/${invoiceId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
       }
-    } catch (error) {
-      console.error('Error downloading invoice:', error);
-      alert('Failed to download invoice');
+    );
+
+    if (!invoiceResponse.ok) {
+      throw new Error('Failed to fetch invoice details');
     }
-  };
+
+    const invoiceData = await invoiceResponse.json();
+    const pdfUrl = invoiceData.data?.pdfUrl;
+
+    // If PDF exists, open it
+    if (pdfUrl) {
+      const fullUrl = pdfUrl.startsWith('http')
+        ? pdfUrl
+        : `${process.env.NEXT_PUBLIC_API_URL}${pdfUrl}`;
+      
+      window.open(fullUrl, '_blank');
+      return;
+    }
+
+    // If no PDF exists, try to regenerate it
+    const regenerateResponse = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/invoices/${invoiceId}/regenerate-pdf`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!regenerateResponse.ok) {
+      throw new Error('Failed to regenerate PDF');
+    }
+
+    const regenerateData = await regenerateResponse.json();
+    
+    if (regenerateData.data?.pdfUrl) {
+      const fullUrl = regenerateData.data.pdfUrl.startsWith('http')
+        ? regenerateData.data.pdfUrl
+        : `${process.env.NEXT_PUBLIC_API_URL}${regenerateData.data.pdfUrl}`;
+      
+      window.open(fullUrl, '_blank');
+    } else {
+      throw new Error('PDF URL not available');
+    }
+  } catch (error) {
+    console.error('Error downloading invoice:', error);
+    alert('Failed to download invoice. Please try again or contact support.');
+  }
+};
 
   if (loading) {
     return (

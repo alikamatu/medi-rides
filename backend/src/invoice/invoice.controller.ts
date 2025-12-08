@@ -46,7 +46,7 @@ export class InvoiceController {
 
   @Post('ride/:rideId/generate')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.CUSTOMER)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Generate invoice for completed ride' })
   @ApiResponse({ status: 201, description: 'Invoice generated successfully' })
@@ -154,49 +154,75 @@ async regeneratePdf(@Param('id', ParseIntPipe) invoiceId: number) {
     };
   }
 
-  // FIXED: Make this endpoint public and add proper response handling
-  @Get(':id/download')
-  @Public()
-  @ApiOperation({ summary: 'Download invoice PDF' })
-  @ApiResponse({ status: 200, description: 'Invoice PDF retrieved' })
-  async downloadInvoice(
-    @Param('id', ParseIntPipe) invoiceId: number,
-    @Res() res: Response,
-  ) {
-    try {
-      const invoice = await this.invoiceService.getInvoice(invoiceId);
-      
-      if (!invoice.pdfUrl) {
-        throw new NotFoundException('PDF not available for this invoice');
+@Get(':id/download')
+@Public()
+@ApiOperation({ summary: 'Download invoice PDF' })
+@ApiResponse({ status: 200, description: 'Invoice PDF retrieved' })
+async downloadInvoice(
+  @Param('id', ParseIntPipe) invoiceId: number,
+  @Res() res: Response,
+) {
+  try {
+    const invoice = await this.invoiceService.getInvoice(invoiceId);
+    
+    if (!invoice.pdfUrl) {
+      // Try to regenerate the PDF if it's missing
+      const regeneratedInvoice = await this.invoiceService.regenerateInvoicePdf(invoiceId);
+      if (!regeneratedInvoice.pdfUrl) {
+        throw new NotFoundException('Unable to generate PDF for this invoice');
       }
-      
-      // Check if pdfUrl is a full URL or relative path
-      if (invoice.pdfUrl.startsWith('http')) {
-        // Redirect to external URL
-        return res.redirect(invoice.pdfUrl);
-      }
-      
-      // For local files, serve the file
-      const fs = require('fs');
-      const path = require('path');
-      const filePath = path.join(process.cwd(), invoice.pdfUrl);
-      
-      if (!fs.existsSync(filePath)) {
-        throw new NotFoundException('PDF file not found');
-      }
-      
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="invoice-${invoice.invoiceNumber}.pdf"`);
-      
-      const fileStream = fs.createReadStream(filePath);
-      fileStream.pipe(res);
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new NotFoundException('Failed to retrieve invoice PDF');
+      invoice.pdfUrl = regeneratedInvoice.pdfUrl;
     }
+    
+    // Check if pdfUrl is a full URL or relative path
+    if (invoice.pdfUrl.startsWith('http')) {
+      // Redirect to external URL
+      return res.redirect(invoice.pdfUrl);
+    }
+    
+    // For local files
+    const fs = require('fs');
+    const path = require('path');
+    
+    // Try multiple possible locations
+    const possiblePaths = [
+      // Original path (relative to project root)
+      path.join(process.cwd(), invoice.pdfUrl),
+      // Path from uploads folder
+      path.join(process.cwd(), 'uploads', invoice.pdfUrl.replace('/uploads/', '')),
+      // Direct path if already absolute
+      invoice.pdfUrl,
+    ];
+    
+    let filePath: string = '';
+    let found = false;
+    
+    for (const possiblePath of possiblePaths) {
+      if (fs.existsSync(possiblePath)) {
+        filePath = possiblePath;
+        found = true;
+        break;
+      }
+    }
+    
+    if (!found) {
+      console.error('PDF not found at any of these paths:', possiblePaths);
+      throw new NotFoundException('PDF file not found on server');
+    }
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="invoice-${invoice.invoiceNumber}.pdf"`);
+    
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+  } catch (error) {
+    console.error('Download error:', error);
+    if (error instanceof NotFoundException) {
+      throw error;
+    }
+    throw new NotFoundException('Failed to retrieve invoice PDF');
   }
+}
 
   // ADD: Alternative endpoint that returns JSON with download URL
   @Get(':id/download-url')

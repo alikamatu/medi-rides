@@ -17,6 +17,14 @@ export interface RideHistory {
   distance: number | null;
   duration: number | null;
   finalPrice: number | null;
+
+  customerId?: number;
+
+    invoice?: {
+    id: number;
+    pdfUrl?: string;
+    invoiceNumber?: string;
+  };
 }
 
 export type RideStatus = 

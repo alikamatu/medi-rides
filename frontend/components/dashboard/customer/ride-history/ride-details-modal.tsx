@@ -15,6 +15,7 @@ import {
   FileText
 } from 'lucide-react';
 import { RideHistory } from '@/types/ride-history.types';
+import { useState } from 'react';
 
 interface RideDetailsModalProps {
   ride: RideHistory | null;
@@ -35,6 +36,8 @@ const statusConfig = {
 };
 
 export default function RideDetailsModal({ ride, isOpen, onClose }: RideDetailsModalProps) {
+  const [downloading, setDownloading] = useState(false);
+
   if (!isOpen || !ride) return null;
 
   const formatDateTime = (dateString: string) => {
@@ -53,6 +56,129 @@ export default function RideDetailsModal({ ride, isOpen, onClose }: RideDetailsM
     };
   };
 
+  const downloadInvoice = async () => {
+    if (!ride.invoice?.id) {
+      await generateAndDownloadInvoice();
+      return;
+    }
+
+    try {
+      setDownloading(true);
+      const token = localStorage.getItem('access_token');
+      
+      const invoiceResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/invoices/${ride.invoice.id}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!invoiceResponse.ok) {
+        throw new Error('Failed to fetch invoice details');
+      }
+
+      const invoiceData = await invoiceResponse.json();
+      const pdfUrl = invoiceData.data?.pdfUrl;
+
+      if (pdfUrl) {
+        const fullUrl = pdfUrl.startsWith('http')
+          ? pdfUrl
+          : `${process.env.NEXT_PUBLIC_API_URL}${pdfUrl}`;
+        window.open(fullUrl, '_blank');
+      } else {
+        await regenerateAndDownloadInvoice(ride.invoice.id);
+      }
+    } catch (error) {
+      console.error('Error downloading invoice:', error);
+      alert('Failed to download invoice. Please try again or contact support.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const generateAndDownloadInvoice = async () => {
+    try {
+      setDownloading(true);
+      const token = localStorage.getItem('access_token');
+      
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/invoices/ride/${ride.id}/generate`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to generate invoice');
+      }
+
+      const data = await response.json();
+      
+      if (data.data.pdfUrl) {
+        const fullUrl = data.data.pdfUrl.startsWith('http')
+          ? data.data.pdfUrl
+          : `${process.env.NEXT_PUBLIC_API_URL}${data.data.pdfUrl}`;
+        window.open(fullUrl, '_blank');
+      } else {
+        window.open(
+          `${process.env.NEXT_PUBLIC_API_URL}/invoices/${data.data.id}/download`,
+          '_blank'
+        );
+      }
+    } catch (error) {
+      console.error('Error generating invoice:', error);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Failed to generate invoice: ${message}`);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const regenerateAndDownloadInvoice = async (invoiceId: number) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/invoices/${invoiceId}/regenerate-pdf`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to regenerate PDF');
+      }
+
+      const data = await response.json();
+      
+      if (data.data.pdfUrl) {
+        const fullUrl = data.data.pdfUrl.startsWith('http')
+          ? data.data.pdfUrl
+          : `${process.env.NEXT_PUBLIC_API_URL}${data.data.pdfUrl}`;
+        window.open(fullUrl, '_blank');
+      } else {
+        window.open(
+          `${process.env.NEXT_PUBLIC_API_URL}/invoices/${invoiceId}/download`,
+          '_blank'
+        );
+      }
+    } catch (error) {
+      console.error('Error regenerating invoice:', error);
+      throw error;
+    }
+  };
+
   const { date, time } = formatDateTime(ride.scheduledAt);
   const status = statusConfig[ride.status] || statusConfig.PENDING;
 
@@ -61,7 +187,7 @@ export default function RideDetailsModal({ ride, isOpen, onClose }: RideDetailsM
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+      className="fixed inset-0 bg-black/40 bg-opacity-50 flex items-center justify-center p-4 z-50"
       onClick={onClose}
     >
       <motion.div
@@ -228,6 +354,37 @@ export default function RideDetailsModal({ ride, isOpen, onClose }: RideDetailsM
             </div>
           )}
 
+          {/* Invoice Information */}
+          {ride.status === 'COMPLETED' && (
+            <div className="bg-gray-50 rounded-xl p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <FileText className="w-5 h-5 mr-2" />
+                Invoice Information
+              </h3>
+              
+              <div className="space-y-3">
+                {ride.invoice ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Invoice Number:</span>
+                      <span className="font-medium">{ride.invoice.invoiceNumber || `INV-${ride.invoice.id}`}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Status:</span>
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        Available
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-gray-600 mb-3">No invoice generated yet for this ride.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
             <button
@@ -236,10 +393,17 @@ export default function RideDetailsModal({ ride, isOpen, onClose }: RideDetailsM
             >
               Close
             </button>
-            <button className="px-6 py-3 bg-blue-600 text-white hover:bg-blue-700 rounded-xl font-medium transition-colors duration-200 flex items-center">
-              <FileText className="w-4 h-4 mr-2" />
-              Print Receipt
-            </button>
+            
+            {ride.status === 'COMPLETED' && (
+              <button
+                onClick={downloadInvoice}
+                disabled={downloading}
+                className="px-6 py-3 bg-blue-600 text-white hover:bg-blue-700 rounded-xl font-medium transition-colors duration-200 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                {downloading ? 'Downloading...' : (ride.invoice ? 'Download Invoice' : 'Generate Invoice')}
+              </button>
+            )}
           </div>
         </div>
       </motion.div>
