@@ -291,13 +291,6 @@ export const useBooking = () => {
   const submitBooking = useCallback(async (): Promise<any> => {
     if (!validateStep(4)) return;
 
-      if (bookedDates.includes(formData.date)) {
-    setErrors({ 
-      date: 'You already have a ride scheduled on this date. Please select a different date.' 
-    });
-    throw new Error('Date already booked');
-  }
-
     setIsSubmitting(true);
     try {
       // Combine waiver info with notes if waiver is selected
